@@ -33,10 +33,7 @@ class WelcomeScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => RoleScreen(
-          role: role,
-          icon: icon,
-        ),
+        builder: (_) => RoleScreen(role: role, icon: icon),
       ),
     );
   }
@@ -85,20 +82,14 @@ class WelcomeScreen extends StatelessWidget {
               const Text(
                 'Такси • Доставка • Магазины',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white60,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.white60),
               ),
 
               const SizedBox(height: 50),
 
               const Text(
                 'Выберите, как войти',
-                style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
               ),
 
               const SizedBox(height: 16),
@@ -107,11 +98,8 @@ class WelcomeScreen extends StatelessWidget {
                 title: 'Пассажир',
                 subtitle: 'Заказать такси или доставку',
                 icon: Icons.person_rounded,
-                onTap: () => openRole(
-                  context,
-                  'Пассажир',
-                  Icons.person_rounded,
-                ),
+                onTap: () =>
+                    openRole(context, 'Пассажир', Icons.person_rounded),
               ),
 
               const SizedBox(height: 12),
@@ -120,11 +108,8 @@ class WelcomeScreen extends StatelessWidget {
                 title: 'Водитель',
                 subtitle: 'Принимать заказы и зарабатывать',
                 icon: Icons.local_taxi_rounded,
-                onTap: () => openRole(
-                  context,
-                  'Водитель',
-                  Icons.local_taxi_rounded,
-                ),
+                onTap: () =>
+                    openRole(context, 'Водитель', Icons.local_taxi_rounded),
               ),
 
               const SizedBox(height: 12),
@@ -133,11 +118,8 @@ class WelcomeScreen extends StatelessWidget {
                 title: 'Магазин',
                 subtitle: 'Товары, заказы и доставка',
                 icon: Icons.storefront_rounded,
-                onTap: () => openRole(
-                  context,
-                  'Магазин',
-                  Icons.storefront_rounded,
-                ),
+                onTap: () =>
+                    openRole(context, 'Магазин', Icons.storefront_rounded),
               ),
 
               const Spacer(),
@@ -145,10 +127,7 @@ class WelcomeScreen extends StatelessWidget {
               const Text(
                 'Сервис создан ZolVas',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white38,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: Colors.white38, fontSize: 13),
               ),
             ],
           ),
@@ -191,11 +170,7 @@ class RoleButton extends StatelessWidget {
                   color: const Color(0xFFFFC400),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(
-                  icon,
-                  color: Colors.black,
-                  size: 29,
-                ),
+                child: Icon(icon, color: Colors.black, size: 29),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -220,10 +195,7 @@ class RoleButton extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white38,
-              ),
+              const Icon(Icons.chevron_right_rounded, color: Colors.white38),
             ],
           ),
         ),
@@ -236,18 +208,12 @@ class RoleScreen extends StatelessWidget {
   final String role;
   final IconData icon;
 
-  const RoleScreen({
-    super.key,
-    required this.role,
-    required this.icon,
-  });
+  const RoleScreen({super.key, required this.role, required this.icon});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-      ),
+      appBar: AppBar(backgroundColor: Colors.transparent),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -255,21 +221,14 @@ class RoleScreen extends StatelessWidget {
           children: [
             const Spacer(),
 
-            Icon(
-              icon,
-              size: 72,
-              color: const Color(0xFFFFC400),
-            ),
+            Icon(icon, size: 72, color: const Color(0xFFFFC400)),
 
             const SizedBox(height: 24),
 
             Text(
               role,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.w900,
-              ),
+              style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
             ),
 
             const SizedBox(height: 10),
@@ -277,10 +236,7 @@ class RoleScreen extends StatelessWidget {
             const Text(
               'Войдите в аккаунт или зарегистрируйтесь',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white60,
-                fontSize: 15,
-              ),
+              style: TextStyle(color: Colors.white60, fontSize: 15),
             ),
 
             const SizedBox(height: 40),
@@ -291,13 +247,17 @@ class RoleScreen extends StatelessWidget {
                 foregroundColor: Colors.black,
                 minimumSize: const Size.fromHeight(56),
               ),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AuthScreen(role: role, isRegister: false),
+                  ),
+                );
+              },
               child: const Text(
                 'ВОЙТИ',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
               ),
             ),
 
@@ -307,12 +267,164 @@ class RoleScreen extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(56),
               ),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AuthScreen(role: role, isRegister: true),
+                  ),
+                );
+              },
               child: const Text('РЕГИСТРАЦИЯ'),
             ),
 
             const Spacer(),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class AuthScreen extends StatefulWidget {
+  final String role;
+  final bool isRegister;
+
+  const AuthScreen({super.key, required this.role, required this.isRegister});
+
+  @override
+  State<AuthScreen> createState() => _AuthScreenState();
+}
+
+class _AuthScreenState extends State<AuthScreen> {
+  final nameController = TextEditingController();
+  final phoneController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  bool hidePassword = true;
+
+  void submit() {
+    if (widget.isRegister && nameController.text.trim().isEmpty) {
+      showMessage('Введите имя');
+      return;
+    }
+
+    if (phoneController.text.trim().isEmpty) {
+      showMessage('Введите номер телефона');
+      return;
+    }
+
+    if (passwordController.text.length < 6) {
+      showMessage('Пароль должен быть не меньше 6 символов');
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => DashboardScreen(role: widget.role)),
+    );
+  }
+
+  void showMessage(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(backgroundColor: Colors.transparent),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 30),
+            Text(
+              widget.isRegister ? 'Регистрация' : 'Вход',
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.role,
+              style: const TextStyle(
+                color: Color(0xFFFFC400),
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 30),
+
+            if (widget.isRegister) ...[
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Имя',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Номер телефона',
+                hintText: '+7 700 000 00 00',
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            TextField(
+              controller: passwordController,
+              obscureText: hidePassword,
+              decoration: InputDecoration(
+                labelText: 'Пароль',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    setState(() => hidePassword = !hidePassword);
+                  },
+                  icon: Icon(
+                    hidePassword ? Icons.visibility : Icons.visibility_off,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 25),
+
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC400),
+                foregroundColor: Colors.black,
+                minimumSize: const Size.fromHeight(56),
+              ),
+              onPressed: submit,
+              child: Text(widget.isRegister ? 'ЗАРЕГИСТРИРОВАТЬСЯ' : 'ВОЙТИ'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class DashboardScreen extends StatelessWidget {
+  final String role;
+
+  const DashboardScreen({super.key, required this.role});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(role)),
+      body: Center(
+        child: Text(
+          '$role: вход выполнен',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
       ),
     );
