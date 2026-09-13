@@ -476,176 +476,19 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 }
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   final String role;
 
   const DashboardScreen({super.key, required this.role});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  final fromController = TextEditingController();
-  final toController = TextEditingController();
-  final priceController = TextEditingController();
-
-  @override
-  void dispose() {
-    fromController.dispose();
-    toController.dispose();
-    priceController.dispose();
-    super.dispose();
-  }
-
-  Future<void> createOrder() async {
-    final from = fromController.text.trim();
-    final to = toController.text.trim();
-    final priceText = priceController.text.trim();
-    final price = int.tryParse(priceText);
-
-    if (from.isEmpty) {
-      showMessage('Укажите, откуда ехать');
-      return;
-    }
-
-    if (to.isEmpty) {
-      showMessage('Укажите, куда ехать');
-      return;
-    }
-
-    if (price == null || price <= 0) {
-      showMessage('Укажите правильную фиксированную цену');
-      return;
-    }
-
-    final user = Supabase.instance.client.auth.currentUser;
-
-    if (user == null) {
-      showMessage('Необходимо войти в аккаунт');
-      return;
-    }
-
-    try {
-      await Supabase.instance.client.from('orders').insert({
-        'passenger_id': user.id,
-        'from_address': from,
-        'to_address': to,
-        'price': price,
-        'status': 'pending',
-      });
-
-      if (!mounted) return;
-
-      fromController.clear();
-      toController.clear();
-      priceController.clear();
-
-      showMessage('Заказ создан • $price ₸');
-    } catch (e) {
-      if (!mounted) return;
-      showMessage('Не удалось создать заказ: $e');
-    }
-  }
-
-  void showMessage(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (widget.role != 'Пассажир') {
-      return Scaffold(
-        appBar: AppBar(title: Text(widget.role)),
-        body: Center(
-          child: Text(
-            '${widget.role}: вход выполнен',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'ТАКСИ БОНУС',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Icon(Icons.person_outline),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Куда едем?',
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Укажите маршрут и фиксированную цену поездки',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-              const SizedBox(height: 28),
-              TextField(
-                controller: fromController,
-                decoration: const InputDecoration(
-                  labelText: 'Откуда',
-                  hintText: 'Адрес подачи',
-                  prefixIcon: Icon(Icons.my_location),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: toController,
-                decoration: const InputDecoration(
-                  labelText: 'Куда',
-                  hintText: 'Адрес назначения',
-                  prefixIcon: Icon(Icons.location_on_outlined),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: priceController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Фиксированная цена',
-                  hintText: 'Например: 2500',
-                  prefixIcon: Icon(Icons.payments_outlined),
-                  suffixText: '₸',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 28),
-              SizedBox(
-                height: 58,
-                child: FilledButton(
-                  onPressed: createOrder,
-                  child: const Text(
-                    'ЗАКАЗАТЬ',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Center(
-                child: Text(
-                  'Цена не изменится после создания заказа',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
-            ],
-          ),
+      appBar: AppBar(title: Text(role)),
+      body: Center(
+        child: Text(
+          '$role: вход выполнен',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
       ),
     );

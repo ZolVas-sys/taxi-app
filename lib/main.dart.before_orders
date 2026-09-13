@@ -498,11 +498,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
-  Future<void> createOrder() async {
+  void createOrder() {
     final from = fromController.text.trim();
     final to = toController.text.trim();
-    final priceText = priceController.text.trim();
-    final price = int.tryParse(priceText);
+    final price = priceController.text.trim();
 
     if (from.isEmpty) {
       showMessage('Укажите, откуда ехать');
@@ -514,38 +513,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
-    if (price == null || price <= 0) {
-      showMessage('Укажите правильную фиксированную цену');
+    if (price.isEmpty || int.tryParse(price) == null) {
+      showMessage('Укажите фиксированную цену');
       return;
     }
 
-    final user = Supabase.instance.client.auth.currentUser;
-
-    if (user == null) {
-      showMessage('Необходимо войти в аккаунт');
-      return;
-    }
-
-    try {
-      await Supabase.instance.client.from('orders').insert({
-        'passenger_id': user.id,
-        'from_address': from,
-        'to_address': to,
-        'price': price,
-        'status': 'pending',
-      });
-
-      if (!mounted) return;
-
-      fromController.clear();
-      toController.clear();
-      priceController.clear();
-
-      showMessage('Заказ создан • $price ₸');
-    } catch (e) {
-      if (!mounted) return;
-      showMessage('Не удалось создать заказ: $e');
-    }
+    showMessage('Заказ: $from → $to • $price ₸');
   }
 
   void showMessage(String text) {
