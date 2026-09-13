@@ -797,6 +797,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               const SizedBox(height: 18),
+              SizedBox(
+                height: 52,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PassengerOffersScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.local_taxi_outlined),
+                  label: const Text(
+                    'ПРЕДЛОЖЕНИЯ ВОДИТЕЛЕЙ',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+
               const Center(
                 child: Text(
                   'Водители смогут предложить свою цену',
@@ -964,6 +984,382 @@ class _DashboardScreenState extends State<DashboardScreen> {
           '${widget.role}: вход выполнен',
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
+      ),
+    );
+  }
+}
+
+class PassengerOffersScreen extends StatefulWidget {
+  const PassengerOffersScreen({super.key});
+
+  @override
+  State<PassengerOffersScreen> createState() => _PassengerOffersScreenState();
+}
+
+class _PassengerOffersScreenState extends State<PassengerOffersScreen> {
+  late Future<List<Map<String, dynamic>>> offersFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    offersFuture = loadOffers();
+  }
+
+  Future<List<Map<String, dynamic>>> loadOffers() async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+
+    if (user == null) {
+      return [];
+    }
+
+    final ordersData = await client
+        .from('orders')
+        .select(
+          'id, from_address, to_address, stops, '
+          'waiting_minutes, price, status',
+        )
+        .eq('passenger_id', user.id)
+        .eq('status', 'pending');
+
+    final orders = List<Map<String, dynamic>>.from(ordersData);
+
+    if (orders.isEmpty) {
+      return [];
+    }
+
+    final ordersById = <String, Map<String, dynamic>>{};
+
+    for (final order in orders) {
+      ordersById['${order['id']}'] = order;
+    }
+
+    final orderIds = ordersById.keys.toList();
+
+    final offersData = await client
+        .from('order_offers')
+        .select('id, order_id, driver_id, price, status, created_at')
+        .inFilter('order_id', orderIds)
+        .eq('status', 'pending')
+        .order('created_at', ascending: false);
+
+    final offers = List<Map<String, dynamic>>.from(offersData);
+
+    final driverIds = offers
+        .map((offer) => '${offer['driver_id']}')
+        .toSet()
+        .toList();
+
+    final driverNames = <String, String>{};
+
+    if (driverIds.isNotEmpty) {
+      try {
+        final profilesData = await client
+            .from('profiles')
+            .select('id, name')
+            .inFilter('id', driverIds);
+
+        for (final profile in List<Map<String, dynamic>>.from(profilesData)) {
+          final name = '${profile['name'] ?? ''}'.trim();
+
+          if (name.isNotEmpty) {
+            driverNames['${profile['id']}'] = name;
+          }
+        }
+      } catch (_) {
+        // Если политика profiles пока не разрешает просмотр,
+        // просто показываем "Водитель".
+      }
+    }
+
+    final result = <Map<String, dynamic>>[];
+
+    for (final offer in offers) {
+      final order = ordersById['${offer['order_id']}'];
+
+      if (order == null) {
+        continue;
+      }
+
+      result.add({
+        ...offer,
+        'order': order,
+        'driver_name': driverNames['${offer['driver_id']}'] ?? 'Водитель',
+      });
+    }
+
+    return result;
+  }
+
+  void reload() {
+    setState(() {
+      offersFuture = loadOffers();
+    });
+  }
+
+  Future<void> acceptOffer(Map<String, dynamic> offer) async {
+    final price = offer['price'];
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Принять предложение?'),
+          content: Text(
+            'Цена поездки будет $price ₸.\n'
+            'Этот водитель получит заказ.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('ОТМЕНА'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('ПРИНЯТЬ'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      await Supabase.instance.client.rpc(
+        'accept_driver_offer',
+        params: {'p_offer_id': offer['id']},
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Предложение $price ₸ принято')));
+
+      reload();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось принять предложение: $e')),
+      );
+    }
+  }
+
+  Future<void> rejectOffer(Map<String, dynamic> offer) async {
+    try {
+      await Supabase.instance.client.rpc(
+        'reject_driver_offer',
+        params: {'p_offer_id': offer['id']},
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Предложение отклонено')));
+
+      reload();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось отклонить предложение: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'ПРЕДЛОЖЕНИЯ ВОДИТЕЛЕЙ',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: offersFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Ошибка загрузки:\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
+
+          final offers = snapshot.data ?? [];
+
+          if (offers.isEmpty) {
+            return RefreshIndicator(
+              onRefresh: () async {
+                reload();
+                await offersFuture;
+              },
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 220),
+                  Icon(Icons.local_taxi_outlined, size: 72),
+                  SizedBox(height: 20),
+                  Center(
+                    child: Text(
+                      'Пока нет предложений',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      'Потяните вниз, чтобы обновить',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              reload();
+              await offersFuture;
+            },
+            child: ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: offers.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 14),
+              itemBuilder: (context, index) {
+                final offer = offers[index];
+                final order = Map<String, dynamic>.from(offer['order']);
+
+                final stopsRaw = order['stops'];
+                final stops = stopsRaw is List
+                    ? stopsRaw.map((e) => '$e').toList()
+                    : <String>[];
+
+                final waiting = order['waiting_minutes'] ?? 0;
+
+                final passengerPrice = order['price'] ?? 0;
+
+                final offerPrice = offer['price'] ?? 0;
+
+                final driverName = '${offer['driver_name']}';
+
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            const CircleAvatar(child: Icon(Icons.local_taxi)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                driverName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const Divider(height: 28),
+
+                        Text(
+                          '${order['from_address']}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 5),
+                          child: Icon(Icons.arrow_downward, size: 20),
+                        ),
+
+                        ...List.generate(
+                          stops.length,
+                          (stopIndex) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                              'Остановка ${stopIndex + 1}: '
+                              '${stops[stopIndex]}',
+                            ),
+                          ),
+                        ),
+
+                        Text(
+                          '${order['to_address']}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        Text('Остановок: ${stops.length}'),
+                        Text('Ожидание: $waiting мин'),
+
+                        const Divider(height: 28),
+
+                        Text('Ваша цена: $passengerPrice ₸'),
+
+                        const SizedBox(height: 7),
+
+                        Text(
+                          'Водитель предлагает: '
+                          '$offerPrice ₸',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => rejectOffer(offer),
+                                child: const Text('ОТКЛОНИТЬ'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: () => acceptOffer(offer),
+                                child: const Text(
+                                  'ПРИНЯТЬ',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
