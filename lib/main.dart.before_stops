@@ -489,53 +489,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final fromController = TextEditingController();
   final toController = TextEditingController();
   final priceController = TextEditingController();
-  final waitingController = TextEditingController(text: '0');
-
-  final List<TextEditingController> stopControllers = [];
-
-  void addStop() {
-    if (stopControllers.length >= 5) {
-      showMessage('Можно добавить не больше 5 остановок');
-      return;
-    }
-
-    setState(() {
-      stopControllers.add(TextEditingController());
-    });
-  }
-
-  void removeStop(int index) {
-    stopControllers[index].dispose();
-
-    setState(() {
-      stopControllers.removeAt(index);
-    });
-  }
 
   @override
   void dispose() {
     fromController.dispose();
     toController.dispose();
     priceController.dispose();
-    waitingController.dispose();
-
-    for (final controller in stopControllers) {
-      controller.dispose();
-    }
-
     super.dispose();
   }
 
   Future<void> createOrder() async {
     final from = fromController.text.trim();
     final to = toController.text.trim();
-    final price = int.tryParse(priceController.text.trim());
-    final waitingMinutes = int.tryParse(waitingController.text.trim()) ?? 0;
-
-    final stops = stopControllers
-        .map((controller) => controller.text.trim())
-        .where((text) => text.isNotEmpty)
-        .toList();
+    final priceText = priceController.text.trim();
+    final price = int.tryParse(priceText);
 
     if (from.isEmpty) {
       showMessage('Укажите, откуда ехать');
@@ -552,11 +519,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
-    if (waitingMinutes < 0 || waitingMinutes > 180) {
-      showMessage('Ожидание можно указать от 0 до 180 минут');
-      return;
-    }
-
     final user = Supabase.instance.client.auth.currentUser;
 
     if (user == null) {
@@ -569,8 +531,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'passenger_id': user.id,
         'from_address': from,
         'to_address': to,
-        'stops': stops,
-        'waiting_minutes': waitingMinutes,
         'price': price,
         'status': 'pending',
       });
@@ -580,106 +540,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       fromController.clear();
       toController.clear();
       priceController.clear();
-      waitingController.text = '0';
 
-      for (final controller in stopControllers) {
-        controller.dispose();
-      }
-
-      setState(() {
-        stopControllers.clear();
-      });
-
-      showMessage(
-        'Заказ создан • ${stops.length} остановок • '
-        '$waitingMinutes мин • $price ₸',
-      );
+      showMessage('Заказ создан • $price ₸');
     } catch (e) {
       if (!mounted) return;
       showMessage('Не удалось создать заказ: $e');
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> loadDriverOrders() async {
-    final data = await Supabase.instance.client
-        .from('orders')
-        .select(
-          'id, from_address, to_address, stops, '
-          'waiting_minutes, price, status, created_at',
-        )
-        .eq('status', 'pending')
-        .order('created_at', ascending: false);
-
-    return List<Map<String, dynamic>>.from(data);
-  }
-
-  Future<void> offerPrice(Map<String, dynamic> order) async {
-    final controller = TextEditingController(text: '${order['price'] ?? ''}');
-
-    final result = await showDialog<int>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Предложить свою цену'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Ваша цена',
-              suffixText: '₸',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('ОТМЕНА'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final price = int.tryParse(controller.text.trim());
-
-                if (price == null || price <= 0) {
-                  return;
-                }
-
-                Navigator.pop(dialogContext, price);
-              },
-              child: const Text('ПРЕДЛОЖИТЬ'),
-            ),
-          ],
-        );
-      },
-    );
-
-    controller.dispose();
-
-    if (result == null) return;
-
-    final user = Supabase.instance.client.auth.currentUser;
-
-    if (user == null) {
-      showMessage('Необходимо войти в аккаунт');
-      return;
-    }
-
-    try {
-      await Supabase.instance.client.from('order_offers').upsert({
-        'order_id': order['id'],
-        'driver_id': user.id,
-        'price': result,
-        'status': 'pending',
-      }, onConflict: 'order_id,driver_id');
-
-      if (!mounted) return;
-
-      showMessage('Предложение $result ₸ отправлено пассажиру');
-
-      setState(() {});
-    } catch (e) {
-      if (!mounted) return;
-      showMessage('Не удалось отправить предложение: $e');
     }
   }
 
@@ -687,7 +552,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  Widget buildPassenger() {
+  @override
+  Widget build(BuildContext context) {
+    if (widget.role != 'Пассажир') {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.role)),
+        body: Center(
+          child: Text(
+            '${widget.role}: вход выполнен',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -713,7 +591,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Маршрут, остановки, ожидание и фиксированная цена',
+                'Укажите маршрут и фиксированную цену поездки',
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 28),
@@ -727,49 +605,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              ...List.generate(stopControllers.length, (index) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: TextField(
-                    controller: stopControllers[index],
-                    decoration: InputDecoration(
-                      labelText: 'Остановка ${index + 1}',
-                      hintText: 'Адрес остановки',
-                      prefixIcon: const Icon(Icons.add_location_alt_outlined),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => removeStop(index),
-                      ),
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                );
-              }),
-
-              OutlinedButton.icon(
-                onPressed: addStop,
-                icon: const Icon(Icons.add),
-                label: Text('ДОБАВИТЬ ОСТАНОВКУ (${stopControllers.length}/5)'),
-              ),
-              const SizedBox(height: 16),
               TextField(
                 controller: toController,
                 decoration: const InputDecoration(
                   labelText: 'Куда',
-                  hintText: 'Конечный адрес',
+                  hintText: 'Адрес назначения',
                   prefixIcon: Icon(Icons.location_on_outlined),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: waitingController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Ожидание',
-                  prefixIcon: Icon(Icons.schedule),
-                  suffixText: 'мин',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -778,7 +619,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 controller: priceController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Ваша цена',
+                  labelText: 'Фиксированная цена',
                   hintText: 'Например: 2500',
                   prefixIcon: Icon(Icons.payments_outlined),
                   suffixText: '₸',
@@ -799,170 +640,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 18),
               const Center(
                 child: Text(
-                  'Водители смогут предложить свою цену',
+                  'Цена не изменится после создания заказа',
                   style: TextStyle(color: Colors.grey),
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildDriver() {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'ЗАКАЗЫ',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: loadDriverOrders(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Ошибка загрузки заказов:\n${snapshot.error}',
-                textAlign: TextAlign.center,
-              ),
-            );
-          }
-
-          final orders = snapshot.data ?? [];
-
-          if (orders.isEmpty) {
-            return RefreshIndicator(
-              onRefresh: () async => setState(() {}),
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 220),
-                  Icon(Icons.local_taxi_outlined, size: 70),
-                  SizedBox(height: 20),
-                  Center(
-                    child: Text(
-                      'Пока нет свободных заказов',
-                      style: TextStyle(fontSize: 18),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async => setState(() {}),
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: orders.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 14),
-              itemBuilder: (context, index) {
-                final order = orders[index];
-
-                final stopsRaw = order['stops'];
-                final stops = stopsRaw is List
-                    ? stopsRaw.map((e) => '$e').toList()
-                    : <String>[];
-
-                final waiting = order['waiting_minutes'] ?? 0;
-                final price = order['price'] ?? 0;
-
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          '${order['from_address']}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 6),
-                          child: Icon(Icons.arrow_downward),
-                        ),
-
-                        ...List.generate(stops.length, (stopIndex) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              'Остановка ${stopIndex + 1}: '
-                              '${stops[stopIndex]}',
-                            ),
-                          );
-                        }),
-
-                        Text(
-                          '${order['to_address']}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Divider(height: 28),
-
-                        Text('Остановок: ${stops.length}'),
-                        const SizedBox(height: 6),
-
-                        Text('Ожидание: $waiting мин'),
-                        const SizedBox(height: 12),
-
-                        Text(
-                          'Цена пассажира: $price ₸',
-                          style: const TextStyle(
-                            fontSize: 21,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-
-                        SizedBox(
-                          height: 52,
-                          child: FilledButton(
-                            onPressed: () => offerPrice(order),
-                            child: const Text(
-                              'ПРЕДЛОЖИТЬ СВОЮ ЦЕНУ',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.role == 'Пассажир') {
-      return buildPassenger();
-    }
-
-    if (widget.role == 'Водитель') {
-      return buildDriver();
-    }
-
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.role)),
-      body: Center(
-        child: Text(
-          '${widget.role}: вход выполнен',
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
       ),
     );
